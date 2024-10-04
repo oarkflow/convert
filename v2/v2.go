@@ -248,6 +248,10 @@ func ToFloat32(val any) (float32, bool) {
 		return float32(v), true
 	case int64:
 		return float32(v), true
+	case int8:
+		return float32(v), true
+	case int16:
+		return float32(v), true
 	case uint:
 		return float32(v), true
 	case uint64:
@@ -269,6 +273,10 @@ func ToFloat64(val any) (float64, bool) {
 	case int:
 		return float64(v), true
 	case int64:
+		return float64(v), true
+	case int8:
+		return float64(v), true
+	case int16:
 		return float64(v), true
 	case uint:
 		return float64(v), true
@@ -305,6 +313,10 @@ func ToUint8(val any) (uint8, bool) {
 		return uint8(v), v <= 255
 	case int:
 		return uint8(v), v >= 0 && v <= 255
+	case float32:
+		return uint8(v), true
+	case float64:
+		return uint8(v), true
 	case string:
 		u, err := strconv.ParseUint(v, 10, 8)
 		return uint8(u), err == nil
@@ -321,6 +333,10 @@ func ToUint16(val any) (uint16, bool) {
 		return uint16(v), v <= 65535
 	case int:
 		return uint16(v), v >= 0 && v <= 65535
+	case float32:
+		return uint16(v), true
+	case float64:
+		return uint16(v), true
 	case string:
 		u, err := strconv.ParseUint(v, 10, 16)
 		return uint16(u), err == nil
@@ -358,6 +374,10 @@ func ToUint64(val any) (uint64, bool) {
 		return uint64(v), v >= 0
 	case int64:
 		return uint64(v), v >= 0
+	case float32:
+		return uint64(v), true
+	case float64:
+		return uint64(v), true
 	case string:
 		u, err := strconv.ParseUint(v, 10, 64)
 		return u, err == nil
@@ -374,6 +394,10 @@ func ToInt(val any) (int, bool) {
 		return int(v), v <= int64(^uint(0)>>1) && v >= -int64(^uint(0)>>1)-1
 	case uint:
 		return int(v), v <= ^uint(0)>>1
+	case float32:
+		return int(v), true
+	case float64:
+		return int(v), true
 	case string:
 		i, err := strconv.Atoi(v)
 		return i, err == nil
@@ -388,6 +412,10 @@ func ToInt8(val any) (int8, bool) {
 		return v, true
 	case int:
 		return int8(v), v >= -128 && v <= 127
+	case float32:
+		return int8(v), true
+	case float64:
+		return int8(v), true
 	case string:
 		i, err := strconv.ParseInt(v, 10, 8)
 		return int8(i), err == nil
@@ -402,6 +430,10 @@ func ToInt16(val any) (int16, bool) {
 		return v, true
 	case int:
 		return int16(v), v >= -32768 && v <= 32767
+	case float32:
+		return int16(v), true
+	case float64:
+		return int16(v), true
 	case string:
 		i, err := strconv.ParseInt(v, 10, 16)
 		return int16(i), err == nil
@@ -431,6 +463,10 @@ func ToInt64(val any) (int64, bool) {
 	case int64:
 		return v, true
 	case int:
+		return int64(v), true
+	case float32:
+		return int64(v), true
+	case float64:
 		return int64(v), true
 	case string:
 		i, err := strconv.ParseInt(v, 10, 64)
