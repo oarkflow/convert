@@ -11,7 +11,7 @@ import (
 )
 
 func To[T any](src T, dst any) (T, bool) {
-	switch any(src).(type) {
+	switch src := any(src).(type) {
 	case string:
 		val, ok := ToString(dst)
 		if !ok {
@@ -192,6 +192,9 @@ func To[T any](src T, dst any) (T, bool) {
 			return *new(T), false
 		}
 		return any(val).(T), true
+	case []any:
+		val, ok := ToSlice(src[0], dst)
+		return val.(T), ok
 	default:
 		return *new(T), false
 	}
