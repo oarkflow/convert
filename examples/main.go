@@ -8,9 +8,9 @@ import (
 
 func main() {
 	input := []any{"1", "2", "3", 4}
-	output, ok := convert.ToSlice[int](input)
-	if !ok {
-		panic("not able to convert")
+	output, err := convert.ToSlice[int](input)
+	if err != nil {
+		panic(err)
 	}
 	fmt.Println(output)
 }
