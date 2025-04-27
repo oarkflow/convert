@@ -2,10 +2,7 @@ package v2
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"math"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -14,374 +11,565 @@ import (
 	"github.com/oarkflow/date"
 )
 
-var (
-	reDate             = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+\-]\d{2}:\d{2})?)|(\d{2} \w{3} \d{4} \d{2}:\d{2}:\d{2} [A-Z]{3})|(\w{3} \d{1,2},? \d{4} \d{2}:\d{2}(:\d{2})? [AP]M)|(\d{4}-\d{2}-\d{2})$`)
-	customConverters   = map[reflect.Type]func(any) (any, error){}
-	ErrUnsupportedType = errors.New("unsupported type")
-)
-
-func RegisterConverter[T any](fn func(any) (T, error)) {
-	var t T
-	customConverters[reflect.TypeOf(t)] = func(v any) (any, error) {
-		return fn(v)
-	}
-}
-
-// To preserves original signature but now returns error
-func To[T any](src T, dst any) (T, error) {
-	var zero T
-	// custom hook
-	if fn, ok := customConverters[reflect.TypeOf(zero)]; ok {
-		out, err := fn(dst)
-		if err != nil {
-			return zero, err
-		}
-		return out.(T), nil
-	}
+func To[T any](src T, dst any) (T, bool) {
 	switch any(src).(type) {
 	case string:
-		s, err := ToStringE(dst)
-		return any(s).(T), err
+		val, ok := ToString(dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case bool:
-		b, err := ToBool(dst)
-		return any(b).(T), err
+		val, ok := ToBool(dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case time.Time:
-		tm, err := ToTime(dst)
-		return any(tm).(T), err
+		val, ok := ToTime(dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case float32:
-		f, err := ToFloat32(dst)
-		return any(f).(T), err
+		val, ok := ToFloat32(dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case float64:
-		f, err := ToFloat64(dst)
-		return any(f).(T), err
+		val, ok := ToFloat64(dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case uint:
-		u, err := ToUint(dst)
-		return any(u).(T), err
+		val, ok := ToUint(dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case uint8:
-		u, err := ToUint8(dst)
-		return any(u).(T), err
+		val, ok := ToUint8(dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case uint16:
-		u, err := ToUint16(dst)
-		return any(u).(T), err
+		val, ok := ToUint16(dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case uint32:
-		u, err := ToUint32(dst)
-		return any(u).(T), err
+		val, ok := ToUint32(dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case uint64:
-		u, err := ToUint64(dst)
-		return any(u).(T), err
+		val, ok := ToUint64(dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case int:
-		i, err := ToInt(dst)
-		return any(i).(T), err
+		val, ok := ToInt(dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case int8:
-		i, err := ToInt8(dst)
-		return any(i).(T), err
+		val, ok := ToInt8(dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case int16:
-		i, err := ToInt16(dst)
-		return any(i).(T), err
+		val, ok := ToInt16(dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case int32:
-		i, err := ToInt32(dst)
-		return any(i).(T), err
+		val, ok := ToInt32(dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case int64:
-		i, err := ToInt64(dst)
-		return any(i).(T), err
+		val, ok := ToInt64(dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case []string:
-		sl, err := ToSlice[string](dst)
-		return any(sl).(T), err
+		val, ok := ToSlice[string](dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case []bool:
-		sl, err := ToSlice[bool](dst)
-		return any(sl).(T), err
+		val, ok := ToSlice[bool](dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case []time.Time:
-		sl, err := ToSlice[time.Time](dst)
-		return any(sl).(T), err
+		val, ok := ToSlice[time.Time](dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case []float32:
-		sl, err := ToSlice[float32](dst)
-		return any(sl).(T), err
+		val, ok := ToSlice[float32](dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case []float64:
-		sl, err := ToSlice[float64](dst)
-		return any(sl).(T), err
+		val, ok := ToSlice[float64](dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case []uint:
-		sl, err := ToSlice[uint](dst)
-		return any(sl).(T), err
+		val, ok := ToSlice[uint](dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case []uint8:
-		sl, err := ToSlice[uint8](dst)
-		return any(sl).(T), err
+		val, ok := ToSlice[uint8](dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case []uint16:
-		sl, err := ToSlice[uint16](dst)
-		return any(sl).(T), err
+		val, ok := ToSlice[uint16](dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case []uint32:
-		sl, err := ToSlice[uint32](dst)
-		return any(sl).(T), err
+		val, ok := ToSlice[uint32](dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case []uint64:
-		sl, err := ToSlice[uint64](dst)
-		return any(sl).(T), err
+		val, ok := ToSlice[uint64](dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case []int:
-		sl, err := ToSlice[int](dst)
-		return any(sl).(T), err
+		val, ok := ToSlice[int](dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case []int8:
-		sl, err := ToSlice[int8](dst)
-		return any(sl).(T), err
+		val, ok := ToSlice[int8](dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case []int16:
-		sl, err := ToSlice[int16](dst)
-		return any(sl).(T), err
+		val, ok := ToSlice[int16](dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case []int32:
-		sl, err := ToSlice[int32](dst)
-		return any(sl).(T), err
+		val, ok := ToSlice[int32](dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	case []int64:
-		sl, err := ToSlice[int64](dst)
-		return any(sl).(T), err
+		val, ok := ToSlice[int64](dst)
+		if !ok {
+			return *new(T), false
+		}
+		return any(val).(T), true
 	default:
-		return zero, ErrUnsupportedType
+		return *new(T), false
 	}
 }
 
-func ToStringE(val any) (string, error) {
+// ToString - Basic type conversion functions
+func ToString(val any) (string, bool) {
 	switch v := val.(type) {
 	case string:
-		return v, nil
+		return v, true
 	case []byte:
-		return string(v), nil
+		return string(v), true
 	case fmt.Stringer:
-		return v.String(), nil
+		return v.String(), true
 	case json.Number:
-		return v.String(), nil
+		return v.String(), true
 	default:
-		return fmt.Sprintf("%v", val), nil
+		return fmt.Sprintf("%v", val), true
 	}
 }
 
-func ToBool(val any) (bool, error) {
+func ToBool(val any) (bool, bool) {
 	switch v := val.(type) {
 	case bool:
-		return v, nil
+		return v, true
 	case string:
-		b, err := strconv.ParseBool(strings.ToLower(v))
-		return b, err
+		b, err := strconv.ParseBool(v)
+		return b, err == nil
 	default:
-		return false, fmt.Errorf("cannot convert %T to bool", val)
+		return false, false
 	}
 }
 
-func ToTime(val any) (time.Time, error) {
+func ToTime(val any) (time.Time, bool) {
 	switch v := val.(type) {
 	case time.Time:
-		return v, nil
+		return v, true
 	case string:
-		if !reDate.MatchString(v) {
-			return time.Time{}, fmt.Errorf("invalid datetime: %s", v)
-		}
-		if t, err := date.Parse(v); err == nil {
-			return t, nil
-		}
-		return date.Parse(v)
+		t, err := date.Parse(v)
+		return t, err == nil
 	default:
-		return time.Time{}, fmt.Errorf("cannot convert %T to time", val)
+		return time.Time{}, false
 	}
 }
 
-func ToFloat32(val any) (float32, error) {
-	f, err := ToFloat64(val)
-	if err != nil {
-		return 0, err
+func ToFloat32(val any) (float32, bool) {
+	switch v := val.(type) {
+	case float32:
+		return v, true
+	case float64:
+		return float32(v), true
+	case string:
+		f, err := strconv.ParseFloat(v, 32)
+		return float32(f), err == nil
+	case int:
+		return float32(v), true
+	case int64:
+		return float32(v), true
+	case int8:
+		return float32(v), true
+	case int16:
+		return float32(v), true
+	case uint:
+		return float32(v), true
+	case uint64:
+		return float32(v), true
+	case json.Number:
+		f, err := v.Float64()
+		return float32(f), err == nil
+	default:
+		return 0, false
 	}
-	if f > math.MaxFloat32 || f < -math.MaxFloat32 {
-		return 0, errors.New("float32 overflow")
-	}
-	return float32(f), nil
 }
 
-func ToFloat64(val any) (float64, error) {
+func ToFloat64(val any) (float64, bool) {
 	switch v := val.(type) {
 	case float64:
-		return v, nil
+		return v, true
 	case float32:
-		return float64(v), nil
-	case int, int8, int16, int32, int64:
-		return float64(reflect.ValueOf(v).Int()), nil
-	case uint, uint8, uint16, uint32, uint64:
-		return float64(reflect.ValueOf(v).Uint()), nil
+		return float64(v), true
 	case string:
-		return strconv.ParseFloat(v, 64)
+		f, err := strconv.ParseFloat(v, 64)
+		return f, err == nil
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case int8:
+		return float64(v), true
+	case int16:
+		return float64(v), true
+	case uint:
+		return float64(v), true
+	case uint64:
+		return float64(v), true
 	case json.Number:
-		return v.Float64()
+		f, err := v.Float64()
+		return float64(f), err == nil
 	default:
-		return 0, fmt.Errorf("cannot convert %T to float64", val)
+		return 0, false
 	}
 }
 
-func ToUint(val any) (uint, error) {
-	u, err := ToUint64(val)
-	if err != nil {
-		return 0, err
+func ToUint(val any) (uint, bool) {
+	switch v := val.(type) {
+	case uint:
+		return v, true
+	case uint64:
+		return uint(v), true
+	case int:
+		return uint(v), v >= 0
+	case int64:
+		return uint(v), v >= 0
+	case string:
+		u, err := strconv.ParseUint(v, 10, 64)
+		return uint(u), err == nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil || i < 0 {
+			return 0, false
+		}
+		return uint(i), true
+	default:
+		return 0, false
 	}
-	if u > math.MaxUint {
-		return 0, errors.New("uint overflow")
-	}
-	return uint(u), nil
 }
 
-func ToUint8(val any) (uint8, error) {
-	u, err := ToUint64(val)
-	if err != nil {
-		return 0, err
+func ToUint8(val any) (uint8, bool) {
+	switch v := val.(type) {
+	case uint8:
+		return v, true
+	case uint:
+		return uint8(v), v <= 255
+	case int:
+		return uint8(v), v >= 0 && v <= 255
+	case float32:
+		return uint8(v), true
+	case float64:
+		return uint8(v), true
+	case string:
+		u, err := strconv.ParseUint(v, 10, 8)
+		return uint8(u), err == nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil || i < 0 || i > 255 {
+			return 0, false
+		}
+		return uint8(i), true
+	default:
+		return 0, false
 	}
-	if u > math.MaxUint8 {
-		return 0, errors.New("uint8 overflow")
-	}
-	return uint8(u), nil
 }
 
-func ToUint16(val any) (uint16, error) {
-	u, err := ToUint64(val)
-	if err != nil {
-		return 0, err
+func ToUint16(val any) (uint16, bool) {
+	switch v := val.(type) {
+	case uint16:
+		return v, true
+	case uint:
+		return uint16(v), v <= 65535
+	case int:
+		return uint16(v), v >= 0 && v <= 65535
+	case float32:
+		return uint16(v), true
+	case float64:
+		return uint16(v), true
+	case string:
+		u, err := strconv.ParseUint(v, 10, 16)
+		return uint16(u), err == nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil || i < 0 || i > 65535 {
+			return 0, false
+		}
+		return uint16(i), true
+	default:
+		return 0, false
 	}
-	if u > math.MaxUint16 {
-		return 0, errors.New("uint16 overflow")
-	}
-	return uint16(u), nil
 }
 
-func ToUint32(val any) (uint32, error) {
-	u, err := ToUint64(val)
-	if err != nil {
-		return 0, err
+func ToUint32(val any) (uint32, bool) {
+	maxUint32Bit := uint32((1 << 32) - 1)
+	switch v := val.(type) {
+	case uint32:
+		return v, true
+	case uint:
+		vt := uint32(v)
+		return vt, vt <= maxUint32Bit
+	case int:
+		vt := uint32(v)
+		return vt, v >= 0 && vt <= maxUint32Bit
+	case string:
+		u, err := strconv.ParseUint(v, 10, 32)
+		return uint32(u), err == nil
+	case json.Number:
+		i, err := v.Int64()
+		maxUint32Bit := int64((1 << 32) - 1)
+		if err != nil || i < 0 || i > maxUint32Bit {
+			return 0, false
+		}
+		return uint32(i), true
+	default:
+		return 0, false
 	}
-	if u > math.MaxUint32 {
-		return 0, errors.New("uint32 overflow")
-	}
-	return uint32(u), nil
 }
 
-func ToUint64(val any) (uint64, error) {
+func ToUint64(val any) (uint64, bool) {
 	switch v := val.(type) {
 	case uint64:
-		return v, nil
-	case uint, uint32, uint16, uint8:
-		return reflect.ValueOf(v).Uint(), nil
-	case int, int8, int16, int32, int64:
-		i := reflect.ValueOf(v).Int()
-		if i < 0 {
-			return 0, errors.New("negative to unsigned")
-		}
-		return uint64(i), nil
-	case float32, float64:
-		f := reflect.ValueOf(v).Float()
-		if f < 0 {
-			return 0, errors.New("negative to unsigned")
-		}
-		return uint64(f), nil
+		return v, true
+	case uint:
+		return uint64(v), true
+	case int:
+		return uint64(v), v >= 0
+	case int64:
+		return uint64(v), v >= 0
+	case float32:
+		return uint64(v), true
+	case float64:
+		return uint64(v), true
 	case string:
-		return strconv.ParseUint(v, 10, 64)
+		u, err := strconv.ParseUint(v, 10, 64)
+		return u, err == nil
 	case json.Number:
-		if i, err := v.Int64(); err == nil && i >= 0 {
-			return uint64(i), nil
-		} else {
-			return 0, err
+		i, err := v.Int64()
+		if err != nil || i < 0 {
+			return 0, false
 		}
+		return uint64(i), true
 	default:
-		return 0, fmt.Errorf("cannot convert %T to uint64", val)
+		return 0, false
 	}
 }
 
-func ToInt(val any) (int, error) {
-	i, err := ToInt64(val)
-	if err != nil {
-		return 0, err
+func ToInt(val any) (int, bool) {
+	switch v := val.(type) {
+	case int:
+		return v, true
+	case int64:
+		return int(v), v <= int64(^uint(0)>>1) && v >= -int64(^uint(0)>>1)-1
+	case uint:
+		return int(v), v <= ^uint(0)>>1
+	case float32:
+		return int(v), true
+	case float64:
+		return int(v), true
+	case string:
+		i, err := strconv.Atoi(v)
+		return i, err == nil
+	case json.Number:
+		i, err := v.Int64()
+		return int(i), err == nil
+	default:
+		return 0, false
 	}
-	if i < math.MinInt || i > math.MaxInt {
-		return 0, errors.New("int overflow")
-	}
-	return int(i), nil
 }
 
-func ToInt8(val any) (int8, error) {
-	i, err := ToInt64(val)
-	if err != nil {
-		return 0, err
+func ToInt8(val any) (int8, bool) {
+	switch v := val.(type) {
+	case int8:
+		return v, true
+	case int:
+		return int8(v), v >= -128 && v <= 127
+	case float32:
+		return int8(v), true
+	case float64:
+		return int8(v), true
+	case string:
+		i, err := strconv.ParseInt(v, 10, 8)
+		return int8(i), err == nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil || i < -128 || i > 127 {
+			return 0, false
+		}
+		return int8(i), true
+	default:
+		return 0, false
 	}
-	if i < math.MinInt8 || i > math.MaxInt8 {
-		return 0, errors.New("int8 overflow")
-	}
-	return int8(i), nil
 }
 
-func ToInt16(val any) (int16, error) {
-	i, err := ToInt64(val)
-	if err != nil {
-		return 0, err
+func ToInt16(val any) (int16, bool) {
+	switch v := val.(type) {
+	case int16:
+		return v, true
+	case int:
+		return int16(v), v >= -32768 && v <= 32767
+	case float32:
+		return int16(v), true
+	case float64:
+		return int16(v), true
+	case string:
+		i, err := strconv.ParseInt(v, 10, 16)
+		return int16(i), err == nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil || i < -32768 || i > 32767 {
+			return 0, false
+		}
+		return int16(i), true
+	default:
+		return 0, false
 	}
-	if i < math.MinInt16 || i > math.MaxInt16 {
-		return 0, errors.New("int16 overflow")
-	}
-	return int16(i), nil
 }
 
-func ToInt32(val any) (int32, error) {
-	i, err := ToInt64(val)
-	if err != nil {
-		return 0, err
+func ToInt32(val any) (int32, bool) {
+	maxInt32Bit := int32((1 << 31) - 1)
+	switch v := val.(type) {
+	case int32:
+		return v, true
+	case int:
+		vt := int32(v)
+		return vt, vt >= -maxInt32Bit && vt <= maxInt32Bit
+	case string:
+		i, err := strconv.ParseInt(v, 10, 32)
+		return int32(i), err == nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil {
+			return 0, false
+		}
+		return int32(i), true
+	default:
+		return 0, false
 	}
-	if i < math.MinInt32 || i > math.MaxInt32 {
-		return 0, errors.New("int32 overflow")
-	}
-	return int32(i), nil
 }
 
-func ToInt64(val any) (int64, error) {
+func ToInt64(val any) (int64, bool) {
 	switch v := val.(type) {
 	case int64:
-		return v, nil
-	case int, int32, int16, int8:
-		return reflect.ValueOf(v).Int(), nil
-	case uint, uint8, uint16, uint32, uint64:
-		return int64(reflect.ValueOf(v).Uint()), nil
-	case float32, float64:
-		return int64(reflect.ValueOf(v).Float()), nil
+		return v, true
+	case int:
+		return int64(v), true
+	case float32:
+		return int64(v), true
+	case float64:
+		return int64(v), true
 	case string:
-		return strconv.ParseInt(v, 10, 64)
+		i, err := strconv.ParseInt(v, 10, 64)
+		return i, err == nil
 	case json.Number:
-		return v.Int64()
-	case bool:
-		if v {
-			return 1, nil
-		}
-		return 0, nil
+		f, err := v.Int64()
+		return int64(f), err == nil
 	default:
-		return 0, fmt.Errorf("cannot convert %T to int64", val)
+		return 0, false
 	}
 }
 
-func ToAny(val any) (any, error) {
-	return val, nil
+func ToAny(val any) (any, bool) {
+	return val, true
 }
 
-type Callback[T any] func(val any) (T, error)
+type Callback[T any] func(val any) (T, bool)
 
-func convertSlice[T any, U any](slice []T) ([]U, error) {
-	out := make([]U, len(slice))
-	for i, v := range slice {
-		// direct assign if types match
-		if _, ok := any(v).(U); ok {
-			out[i] = any(v).(U)
-			continue
+func convertSlice[T any, U any](slice []T) ([]U, bool) {
+	var t U
+	result := make([]U, len(slice))
+	for i, elem := range slice {
+		if any(t) == nil {
+			result[i] = any(elem).(U)
+		} else {
+			str, ok := To(t, elem)
+			if !ok {
+				return nil, false
+			}
+			result[i] = str
 		}
-		conv, err := To[U](any(v).(U), v)
-		if err != nil {
-			return nil, err
-		}
-		out[i] = conv
 	}
-	return out, nil
+	return result, true
 }
 
-func ToSlice[U any](val any) ([]U, error) {
+// ToSlice - Slice conversion functions
+func ToSlice[U any](val any) ([]U, bool) {
 	switch v := val.(type) {
-	case []U:
-		return v, nil
-	case []any:
-		return convertSlice[any, U](v)
 	case []string:
 		return convertSlice[string, U](v)
+	case []any:
+		return convertSlice[any, U](v)
 	case []int:
 		return convertSlice[int, U](v)
 	case []int8:
@@ -407,173 +595,176 @@ func ToSlice[U any](val any) ([]U, error) {
 	case []float64:
 		return convertSlice[float64, U](v)
 	default:
-		return nil, fmt.Errorf("cannot convert %T to slice[%T]", val, *new(U))
+		return nil, false
 	}
 }
 
-func Compare[T any](a T, b any) (int, error) {
-	av := any(a)
-	// try date first
-	if s, ok := av.(string); ok && IsValidDateTime(s) {
-		at, err := date.Parse(s)
-		if err != nil {
-			return 0, err
-		}
-		bt, err := ToTime(b)
-		if err != nil {
-			return 0, err
-		}
-		switch {
-		case at.Before(bt):
-			return -1, nil
-		case at.After(bt):
-			return 1, nil
-		default:
-			return 0, nil
-		}
-	}
-	// fallback to To()
-	dst, err := To[T](a, b)
-	if err != nil {
-		return 0, err
-	}
-	switch x := av.(type) {
+var re = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)|` +
+	`(\d{2} \w{3} \d{4} \d{2}:\d{2}:\d{2} [A-Z]{3})|` +
+	`(\w{3} \d{1,2},? \d{4} \d{2}:\d{2}(:\d{2})? [AP]M)|` +
+	`(\d{4}-\d{2}-\d{2})$`)
+
+func Compare[T any](a T, b any) int {
+	var as, bs any
+	var ok bool
+	var err error
+	switch a := any(a).(type) {
 	case string:
-		y := any(dst).(string)
-		return strings.Compare(x, y), nil
+		if IsValidDateTime(a) {
+			as, err = date.Parse(a)
+			if err != nil {
+				return 0
+			}
+			bs, ok = To(as, b)
+		}
+	default:
+		as = a
+		bs, ok = To(a, b)
+		if !ok {
+			return 0
+		}
+	}
+	switch a := as.(type) {
+	case string:
+		b := bs.(string)
+		return strings.Compare(a, b)
 	case bool:
-		xb, _ := ToBool(x)
-		yb, _ := ToBool(dst)
-		if xb == yb {
-			return 0, nil
-		}
-		if !xb && yb {
-			return -1, nil
-		}
-		return 1, nil
+		return 0
 	case time.Time:
-		y := any(dst).(time.Time)
+		b := bs.(time.Time)
 		switch {
-		case x.Before(y):
-			return -1, nil
-		case x.After(y):
-			return 1, nil
+		case a.Before(b):
+			return -1
+		case a.After(b):
+			return 1
 		default:
-			return 0, nil
+			return 0
 		}
 	case float32:
-		y := any(dst).(float32)
-		if x < y {
-			return -1, nil
+		b := bs.(float32)
+		switch {
+		case a < b:
+			return -1
+		case a > b:
+			return 1
+		default:
+			return 0
 		}
-		if x > y {
-			return 1, nil
-		}
-		return 0, nil
 	case float64:
-		y := any(dst).(float64)
-		if x < y {
-			return -1, nil
+		b := bs.(float64)
+		switch {
+		case a < b:
+			return -1
+		case a > b:
+			return 1
+		default:
+			return 0
 		}
-		if x > y {
-			return 1, nil
-		}
-		return 0, nil
 	case uint:
-		y := any(dst).(uint)
-		if x < y {
-			return -1, nil
+		b := bs.(uint)
+		switch {
+		case a < b:
+			return -1
+		case a > b:
+			return 1
+		default:
+			return 0
 		}
-		if x > y {
-			return 1, nil
-		}
-		return 0, nil
 	case uint8:
-		y := any(dst).(uint8)
-		if x < y {
-			return -1, nil
+		b := bs.(uint8)
+		switch {
+		case a < b:
+			return -1
+		case a > b:
+			return 1
+		default:
+			return 0
 		}
-		if x > y {
-			return 1, nil
-		}
-		return 0, nil
 	case uint16:
-		y := any(dst).(uint16)
-		if x < y {
-			return -1, nil
+		b := bs.(uint16)
+		switch {
+		case a < b:
+			return -1
+		case a > b:
+			return 1
+		default:
+			return 0
 		}
-		if x > y {
-			return 1, nil
-		}
-		return 0, nil
 	case uint32:
-		y := any(dst).(uint32)
-		if x < y {
-			return -1, nil
+		b := bs.(uint32)
+		switch {
+		case a < b:
+			return -1
+		case a > b:
+			return 1
+		default:
+			return 0
 		}
-		if x > y {
-			return 1, nil
-		}
-		return 0, nil
 	case uint64:
-		y := any(dst).(uint64)
-		if x < y {
-			return -1, nil
+		b := bs.(uint64)
+		switch {
+		case a < b:
+			return -1
+		case a > b:
+			return 1
+		default:
+			return 0
 		}
-		if x > y {
-			return 1, nil
-		}
-		return 0, nil
 	case int:
-		y := any(dst).(int)
-		if x < y {
-			return -1, nil
+		b := bs.(int)
+		switch {
+		case a < b:
+			return -1
+		case a > b:
+			return 1
+		default:
+			return 0
 		}
-		if x > y {
-			return 1, nil
-		}
-		return 0, nil
 	case int8:
-		y := any(dst).(int8)
-		if x < y {
-			return -1, nil
+		b := bs.(int8)
+		switch {
+		case a < b:
+			return -1
+		case a > b:
+			return 1
+		default:
+			return 0
 		}
-		if x > y {
-			return 1, nil
-		}
-		return 0, nil
 	case int16:
-		y := any(dst).(int16)
-		if x < y {
-			return -1, nil
+		b := bs.(int16)
+		switch {
+		case a < b:
+			return -1
+		case a > b:
+			return 1
+		default:
+			return 0
 		}
-		if x > y {
-			return 1, nil
-		}
-		return 0, nil
 	case int32:
-		y := any(dst).(int32)
-		if x < y {
-			return -1, nil
+		b := bs.(int32)
+		switch {
+		case a < b:
+			return -1
+		case a > b:
+			return 1
+		default:
+			return 0
 		}
-		if x > y {
-			return 1, nil
-		}
-		return 0, nil
 	case int64:
-		y := any(dst).(int64)
-		if x < y {
-			return -1, nil
+		b := bs.(int64)
+		switch {
+		case a < b:
+			return -1
+		case a > b:
+			return 1
+		default:
+			return 0
 		}
-		if x > y {
-			return 1, nil
-		}
-		return 0, nil
 	default:
-		return 0, ErrUnsupportedType
+		return 0
 	}
 }
 
 func IsValidDateTime(str string) bool {
-	return reDate.MatchString(str)
+	return re.MatchString(str)
 }
