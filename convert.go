@@ -1,6 +1,7 @@
 package convert
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -306,6 +307,8 @@ func ToString(val any) (string, bool) {
 		return string(v), true
 	case fmt.Stringer:
 		return v.String(), true
+	case json.Number:
+		return v.String(), true
 	default:
 		return fmt.Sprintf("%v", val), true
 	}
@@ -356,6 +359,9 @@ func ToFloat32(val any) (float32, bool) {
 		return float32(v), true
 	case uint64:
 		return float32(v), true
+	case json.Number:
+		f, err := v.Float64()
+		return float32(f), err == nil
 	default:
 		return 0, false
 	}
@@ -382,6 +388,12 @@ func ToFloat64(val any) (float64, bool) {
 		return float64(v), true
 	case uint64:
 		return float64(v), true
+	case json.Number:
+		bt, err := v.Float64()
+		if err == nil {
+			return 0, false
+		}
+		return bt, true
 	default:
 		return 0, false
 	}
@@ -400,6 +412,12 @@ func ToUint(val any) (uint, bool) {
 	case string:
 		u, err := strconv.ParseUint(v, 10, 64)
 		return uint(u), err == nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil || i < 0 {
+			return 0, false
+		}
+		return uint(i), true
 	default:
 		return 0, false
 	}
@@ -420,6 +438,12 @@ func ToUint8(val any) (uint8, bool) {
 	case string:
 		u, err := strconv.ParseUint(v, 10, 8)
 		return uint8(u), err == nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil || i < 0 || i > 255 {
+			return 0, false
+		}
+		return uint8(i), true
 	default:
 		return 0, false
 	}
@@ -440,6 +464,12 @@ func ToUint16(val any) (uint16, bool) {
 	case string:
 		u, err := strconv.ParseUint(v, 10, 16)
 		return uint16(u), err == nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil || i < 0 || i > 65535 {
+			return 0, false
+		}
+		return uint16(i), true
 	default:
 		return 0, false
 	}
@@ -459,6 +489,13 @@ func ToUint32(val any) (uint32, bool) {
 	case string:
 		u, err := strconv.ParseUint(v, 10, 32)
 		return uint32(u), err == nil
+	case json.Number:
+		i, err := v.Int64()
+		maxUint32Bit := int64((1 << 32) - 1)
+		if err != nil || i < 0 || i > maxUint32Bit {
+			return 0, false
+		}
+		return uint32(i), true
 	default:
 		return 0, false
 	}
@@ -481,6 +518,12 @@ func ToUint64(val any) (uint64, bool) {
 	case string:
 		u, err := strconv.ParseUint(v, 10, 64)
 		return u, err == nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil || i < 0 {
+			return 0, false
+		}
+		return uint64(i), true
 	default:
 		return 0, false
 	}
@@ -501,6 +544,9 @@ func ToInt(val any) (int, bool) {
 	case string:
 		i, err := strconv.Atoi(v)
 		return i, err == nil
+	case json.Number:
+		i, err := v.Int64()
+		return int(i), err == nil
 	default:
 		return 0, false
 	}
@@ -519,6 +565,12 @@ func ToInt8(val any) (int8, bool) {
 	case string:
 		i, err := strconv.ParseInt(v, 10, 8)
 		return int8(i), err == nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil || i < -128 || i > 127 {
+			return 0, false
+		}
+		return int8(i), true
 	default:
 		return 0, false
 	}
@@ -537,6 +589,12 @@ func ToInt16(val any) (int16, bool) {
 	case string:
 		i, err := strconv.ParseInt(v, 10, 16)
 		return int16(i), err == nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil || i < -32768 || i > 32767 {
+			return 0, false
+		}
+		return int16(i), true
 	default:
 		return 0, false
 	}
@@ -553,6 +611,12 @@ func ToInt32(val any) (int32, bool) {
 	case string:
 		i, err := strconv.ParseInt(v, 10, 32)
 		return int32(i), err == nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil {
+			return 0, false
+		}
+		return int32(i), true
 	default:
 		return 0, false
 	}
@@ -571,6 +635,12 @@ func ToInt64(val any) (int64, bool) {
 	case string:
 		i, err := strconv.ParseInt(v, 10, 64)
 		return i, err == nil
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil {
+			return 0, false
+		}
+		return int64(i), true
 	default:
 		return 0, false
 	}
