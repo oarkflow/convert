@@ -129,6 +129,37 @@ func To[T any](src T, dst any) (T, error) {
 	case []int64:
 		sl, err := ToSlice[int64](dst)
 		return any(sl).(T), err
+	case json.Number:
+		var result json.Number
+		switch dst.(type) {
+		case string:
+			result = json.Number(dst.(string))
+		case int, int8, int16, int32, int64:
+			i, err := ToInt64(dst)
+			if err != nil {
+				return zero, err
+			}
+			result = json.Number(strconv.FormatInt(i, 10))
+		case uint, uint8, uint16, uint32, uint64:
+			u, err := ToUint64(dst)
+			if err != nil {
+				return zero, err
+			}
+			result = json.Number(strconv.FormatUint(u, 10))
+		case float32, float64:
+			f, err := ToFloat64(dst)
+			if err != nil {
+				return zero, err
+			}
+			result = json.Number(strconv.FormatFloat(f, 'f', -1, 64))
+		default:
+			s, err := ToString(dst)
+			if err != nil {
+				return zero, err
+			}
+			result = json.Number(s)
+		}
+		return any(result).(T), nil
 	default:
 		return zero, ErrUnsupportedType
 	}
@@ -433,7 +464,7 @@ func Compare[T any](a T, b any) (int, error) {
 		}
 	}
 	// fallback to To()
-	dst, err := To[T](a, b)
+	dst, err := To(a, b)
 	if err != nil {
 		return 0, err
 	}
@@ -566,6 +597,22 @@ func Compare[T any](a T, b any) (int, error) {
 			return -1, nil
 		}
 		if x > y {
+			return 1, nil
+		}
+		return 0, nil
+	case json.Number:
+		xFloat, err := ToFloat64(x)
+		if err != nil {
+			return 0, err
+		}
+		yFloat, err := ToFloat64(dst)
+		if err != nil {
+			return 0, err
+		}
+		if xFloat < yFloat {
+			return -1, nil
+		}
+		if xFloat > yFloat {
 			return 1, nil
 		}
 		return 0, nil
