@@ -30,6 +30,9 @@ func RegisterConverter[T any](fn func(any) (T, error)) {
 // To preserves original signature but now returns error
 func To[T any](src T, dst any) (T, error) {
 	var zero T
+	if dst == nil {
+		return zero, nil
+	}
 	// custom hook
 	if fn, ok := customConverters[reflect.TypeOf(zero)]; ok {
 		out, err := fn(dst)
@@ -160,12 +163,24 @@ func To[T any](src T, dst any) (T, error) {
 			result = json.Number(s)
 		}
 		return any(result).(T), nil
+	case complex64:
+		c, err := ToComplex64(dst)
+		return any(c).(T), err
+	case complex128:
+		c, err := ToComplex128(dst)
+		return any(c).(T), err
+	case time.Duration:
+		d, err := ToDuration(dst)
+		return any(d).(T), err
 	default:
 		return zero, ErrUnsupportedType
 	}
 }
 
 func ToString(val any) (string, error) {
+	if val == nil {
+		return "", nil
+	}
 	switch v := val.(type) {
 	case string:
 		return v, nil
@@ -181,6 +196,9 @@ func ToString(val any) (string, error) {
 }
 
 func ToBool(val any) (bool, error) {
+	if val == nil {
+		return false, nil
+	}
 	switch v := val.(type) {
 	case bool:
 		return v, nil
@@ -193,6 +211,9 @@ func ToBool(val any) (bool, error) {
 }
 
 func ToTime(val any) (time.Time, error) {
+	if val == nil {
+		return time.Time{}, nil
+	}
 	switch v := val.(type) {
 	case time.Time:
 		return v, nil
@@ -209,6 +230,24 @@ func ToTime(val any) (time.Time, error) {
 	}
 }
 
+func ToDuration(val any) (time.Duration, error) {
+	if val == nil {
+		return 0, nil
+	}
+	switch v := val.(type) {
+	case time.Duration:
+		return v, nil
+	case string:
+		return time.ParseDuration(v)
+	case int64:
+		return time.Duration(v), nil
+	case int:
+		return time.Duration(v), nil
+	default:
+		return 0, fmt.Errorf("cannot convert %T to time.Duration", val)
+	}
+}
+
 func ToFloat32(val any) (float32, error) {
 	f, err := ToFloat64(val)
 	if err != nil {
@@ -221,15 +260,34 @@ func ToFloat32(val any) (float32, error) {
 }
 
 func ToFloat64(val any) (float64, error) {
+	if val == nil {
+		return 0, nil
+	}
 	switch v := val.(type) {
 	case float64:
 		return v, nil
 	case float32:
 		return float64(v), nil
-	case int, int8, int16, int32, int64:
-		return float64(reflect.ValueOf(v).Int()), nil
-	case uint, uint8, uint16, uint32, uint64:
-		return float64(reflect.ValueOf(v).Uint()), nil
+	case int:
+		return float64(v), nil
+	case int8:
+		return float64(v), nil
+	case int16:
+		return float64(v), nil
+	case int32:
+		return float64(v), nil
+	case int64:
+		return float64(v), nil
+	case uint:
+		return float64(v), nil
+	case uint8:
+		return float64(v), nil
+	case uint16:
+		return float64(v), nil
+	case uint32:
+		return float64(v), nil
+	case uint64:
+		return float64(v), nil
 	case string:
 		return strconv.ParseFloat(v, 64)
 	case json.Number:
@@ -239,6 +297,39 @@ func ToFloat64(val any) (float64, error) {
 	}
 }
 
+func ToComplex64(val any) (complex64, error) {
+	if val == nil {
+		return 0, nil
+	}
+	switch v := val.(type) {
+	case complex64:
+		return v, nil
+	case complex128:
+		return complex64(v), nil
+	case string:
+		c, err := strconv.ParseComplex(v, 64)
+		return complex64(c), err
+	default:
+		return 0, fmt.Errorf("cannot convert %T to complex64", val)
+	}
+}
+
+func ToComplex128(val any) (complex128, error) {
+	if val == nil {
+		return 0, nil
+	}
+	switch v := val.(type) {
+	case complex128:
+		return v, nil
+	case complex64:
+		return complex128(v), nil
+	case string:
+		c, err := strconv.ParseComplex(v, 128)
+		return c, err
+	default:
+		return 0, fmt.Errorf("cannot convert %T to complex128", val)
+	}
+}
 func ToUint(val any) (uint, error) {
 	u, err := ToUint64(val)
 	if err != nil {
@@ -284,31 +375,72 @@ func ToUint32(val any) (uint32, error) {
 }
 
 func ToUint64(val any) (uint64, error) {
+	if val == nil {
+		return 0, nil
+	}
 	switch v := val.(type) {
 	case uint64:
 		return v, nil
-	case uint, uint32, uint16, uint8:
-		return reflect.ValueOf(v).Uint(), nil
-	case int, int8, int16, int32, int64:
-		i := reflect.ValueOf(v).Int()
-		if i < 0 {
+	case uint:
+		return uint64(v), nil
+	case uint32:
+		return uint64(v), nil
+	case uint16:
+		return uint64(v), nil
+	case uint8:
+		return uint64(v), nil
+	case int:
+		if v < 0 {
 			return 0, errors.New("negative to unsigned")
 		}
-		return uint64(i), nil
-	case float32, float64:
-		f := reflect.ValueOf(v).Float()
-		if f < 0 {
+		return uint64(v), nil
+	case int8:
+		if v < 0 {
 			return 0, errors.New("negative to unsigned")
 		}
-		return uint64(f), nil
+		return uint64(v), nil
+	case int16:
+		if v < 0 {
+			return 0, errors.New("negative to unsigned")
+		}
+		return uint64(v), nil
+	case int32:
+		if v < 0 {
+			return 0, errors.New("negative to unsigned")
+		}
+		return uint64(v), nil
+	case int64:
+		if v < 0 {
+			return 0, errors.New("negative to unsigned")
+		}
+		return uint64(v), nil
+	case float32:
+		if v < 0 {
+			return 0, errors.New("negative to unsigned")
+		}
+		if v > math.MaxUint64 {
+			return 0, errors.New("float32 to uint64 overflow")
+		}
+		return uint64(v), nil
+	case float64:
+		if v < 0 {
+			return 0, errors.New("negative to unsigned")
+		}
+		if v > math.MaxUint64 {
+			return 0, errors.New("float64 to uint64 overflow")
+		}
+		return uint64(v), nil
 	case string:
 		return strconv.ParseUint(v, 10, 64)
 	case json.Number:
-		if i, err := v.Int64(); err == nil && i >= 0 {
-			return uint64(i), nil
-		} else {
+		i, err := v.Int64()
+		if err != nil {
 			return 0, err
 		}
+		if i < 0 {
+			return 0, errors.New("negative value")
+		}
+		return uint64(i), nil
 	default:
 		return 0, fmt.Errorf("cannot convert %T to uint64", val)
 	}
@@ -359,15 +491,40 @@ func ToInt32(val any) (int32, error) {
 }
 
 func ToInt64(val any) (int64, error) {
+	if val == nil {
+		return 0, nil
+	}
 	switch v := val.(type) {
 	case int64:
 		return v, nil
-	case int, int32, int16, int8:
-		return reflect.ValueOf(v).Int(), nil
-	case uint, uint8, uint16, uint32, uint64:
-		return int64(reflect.ValueOf(v).Uint()), nil
-	case float32, float64:
-		return int64(reflect.ValueOf(v).Float()), nil
+	case int:
+		return int64(v), nil
+	case int32:
+		return int64(v), nil
+	case int16:
+		return int64(v), nil
+	case int8:
+		return int64(v), nil
+	case uint:
+		return int64(v), nil
+	case uint8:
+		return int64(v), nil
+	case uint16:
+		return int64(v), nil
+	case uint32:
+		return int64(v), nil
+	case uint64:
+		return int64(v), nil
+	case float32:
+		if v > math.MaxInt64 || v < math.MinInt64 {
+			return 0, errors.New("float32 to int64 overflow")
+		}
+		return int64(v), nil
+	case float64:
+		if v > math.MaxInt64 || v < math.MinInt64 {
+			return 0, errors.New("float64 to int64 overflow")
+		}
+		return int64(v), nil
 	case string:
 		return strconv.ParseInt(v, 10, 64)
 	case json.Number:
@@ -406,6 +563,9 @@ func convertSlice[T any, U any](slice []T) ([]U, error) {
 }
 
 func ToSlice[U any](val any) ([]U, error) {
+	if val == nil {
+		return nil, nil
+	}
 	switch v := val.(type) {
 	case []U:
 		return v, nil
@@ -613,6 +773,19 @@ func Compare[T any](a T, b any) (int, error) {
 			return -1, nil
 		}
 		if xFloat > yFloat {
+			return 1, nil
+		}
+		return 0, nil
+	case complex64:
+		return 0, nil
+	case complex128:
+		return 0, nil
+	case time.Duration:
+		y := any(dst).(time.Duration)
+		if x < y {
+			return -1, nil
+		}
+		if x > y {
 			return 1, nil
 		}
 		return 0, nil
