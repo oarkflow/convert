@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	convert "github.com/oarkflow/convert/v2"
+	"github.com/oarkflow/convert"
 )
 
 func main() {
