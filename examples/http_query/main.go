@@ -2,24 +2,20 @@ package main
 
 import (
 	"fmt"
+	"github.com/oarkflow/convert"
 	"net/url"
 	"time"
-
-	convert "github.com/oarkflow/convert"
 )
 
 type Request struct {
 	Page    int           `query:"page" default:"1"`
-	Debug   bool          `query:"debug"`
-	Timeout time.Duration `query:"timeout" default:"5s"`
 	Tags    []string      `query:"tag"`
+	Timeout time.Duration `query:"timeout" default:"1s"`
 }
 
 func main() {
-	values := url.Values{"page": {"2"}, "debug": {"true"}, "timeout": {"1s"}, "tag": {"api", "edge"}}
-	var req Request
-	if err := convert.BindQuery(&req, values); err != nil {
-		panic(err)
-	}
-	fmt.Println(req.Page, req.Debug, req.Timeout, req.Tags)
+	q := url.Values{"page": {"2"}, "tag": {"api", "edge"}, "timeout": {"3s"}}
+	var r Request
+	_ = convert.BindQuery(&r, q)
+	fmt.Println(r.Page, r.Tags, r.Timeout)
 }

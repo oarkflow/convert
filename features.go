@@ -257,39 +257,13 @@ func splitPolicyFrom(opts []SplitOption) splitPolicy {
 	return p
 }
 
-func ToSlice[T any](v any, opts ...SplitOption) ([]T, error) {
+func ToSlice[T Target](v any, opts ...SplitOption) ([]T, error) {
 	sp := splitPolicyFrom(opts)
-	parts, err := sliceParts(v, sp)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]T, 0, len(parts))
-	var z T
-	t := reflect.TypeOf(z)
-	if t == nil {
-		// T is interface{} / any. Preserve values without scalar coercion.
-		for _, part := range parts {
-			out = append(out, any(part).(T))
-		}
-		return maybeUniqueSlice(out, sp.unique), nil
-	}
-	for _, part := range parts {
-		x, err := Convert[T](part)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, x)
-	}
-	return maybeUniqueSlice(out, sp.unique), nil
-}
-
-func sliceParts(v any, sp splitPolicy) ([]any, error) {
+	var parts []any
 	switch x := v.(type) {
-	case nil:
-		return nil, ErrNil
 	case string:
 		ss := strings.Split(x, sp.sep)
-		parts := make([]any, 0, len(ss))
+		parts = make([]any, 0, len(ss))
 		for _, s := range ss {
 			if sp.trim {
 				s = strings.TrimSpace(s)
@@ -299,50 +273,42 @@ func sliceParts(v any, sp splitPolicy) ([]any, error) {
 			}
 			parts = append(parts, s)
 		}
-		return parts, nil
 	case []byte:
-		return sliceParts(bytesToString(x), sp)
+		return ToSlice[T](bytesToString(x), opts...)
 	case []any:
-		return x, nil
-	}
-	rv := reflect.ValueOf(v)
-	if rv.IsValid() && (rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array) {
-		parts := make([]any, rv.Len())
-		for i := 0; i < rv.Len(); i++ {
-			parts[i] = rv.Index(i).Interface()
+		parts = x
+	default:
+		rv := reflect.ValueOf(v)
+		if rv.IsValid() && (rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array) {
+			parts = make([]any, rv.Len())
+			for i := 0; i < rv.Len(); i++ {
+				parts[i] = rv.Index(i).Interface()
+			}
+		} else {
+			return nil, ErrUnsupported
 		}
-		return parts, nil
 	}
-	return nil, ErrUnsupported
+	out := make([]T, 0, len(parts))
+	seen := map[T]struct{}{}
+	var z T
+	comparable := reflect.TypeOf(z).Comparable()
+	for _, part := range parts {
+		x, err := To[T](part)
+		if err != nil {
+			return nil, err
+		}
+		if sp.unique && comparable {
+			if _, ok := seen[x]; ok {
+				continue
+			}
+			seen[x] = struct{}{}
+		}
+		out = append(out, x)
+	}
+	return out, nil
 }
 
-func maybeUniqueSlice[T any](in []T, unique bool) []T {
-	if !unique || len(in) < 2 {
-		return in
-	}
-	t := reflect.TypeOf((*T)(nil)).Elem()
-	if !t.Comparable() {
-		return in
-	}
-	seen := make(map[any]struct{}, len(in))
-	out := in[:0]
-	for _, v := range in {
-		k := any(v)
-		if _, ok := seen[k]; ok {
-			continue
-		}
-		seen[k] = struct{}{}
-		out = append(out, v)
-	}
-	return out
-}
-
-func ToAnySlice(v any, opts ...SplitOption) ([]any, error)       { return ToSlice[any](v, opts...) }
 func ToStringSlice(v any, opts ...SplitOption) ([]string, error) { return ToSlice[string](v, opts...) }
-func ToIntSlice(v any, opts ...SplitOption) ([]int, error)       { return ToSlice[int](v, opts...) }
-func ToDurationSlice(v any, opts ...SplitOption) ([]time.Duration, error) {
-	return ToSlice[time.Duration](v, opts...)
-}
 
 type MapKey interface {
 	Target
@@ -386,55 +352,7 @@ func ToAnyMap(v any) (map[string]any, error) {
 }
 
 func ToStruct[T any](src any) (T, error) { var out T; err := Populate(&out, src); return out, err }
-func Populate(dst any, src any) error {
-	if dst == nil {
-		return ErrNil
-	}
-	dv := reflect.ValueOf(dst)
-	if dv.Kind() != reflect.Pointer || dv.IsNil() {
-		return ErrUnsupported
-	}
-	dv = dv.Elem()
-	if dv.Kind() != reflect.Struct {
-		return ErrUnsupported
-	}
-	m, err := sourceMap(src)
-	if err != nil {
-		return err
-	}
-	dt := dv.Type()
-	for i := 0; i < dt.NumField(); i++ {
-		f := dt.Field(i)
-		if f.PkgPath != "" {
-			continue
-		}
-		name := f.Tag.Get("convert")
-		if name == "-" {
-			continue
-		}
-		if name == "" {
-			name = snakeName(f.Name)
-		}
-		val, ok := lookupCaseInsensitive(m, name)
-		if !ok {
-			if def := f.Tag.Get("default"); def != "" {
-				val = def
-				ok = true
-			}
-		}
-		if !ok {
-			continue
-		}
-		fv := dv.Field(i)
-		if !fv.CanSet() {
-			continue
-		}
-		if err := setReflectValue(fv, val); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+func Populate(dst any, src any) error    { return PopulateWithOptions(dst, src) }
 func sourceMap(src any) (map[string]any, error) {
 	switch x := src.(type) {
 	case map[string]any:
@@ -485,89 +403,7 @@ func snakeName(s string) string {
 	}
 	return b.String()
 }
-func setReflectValue(fv reflect.Value, val any) error {
-	if !fv.CanSet() {
-		return ErrUnsupported
-	}
-	if fv.Kind() == reflect.Pointer {
-		if IsNilLike(val) {
-			return nil
-		}
-		nv := reflect.New(fv.Type().Elem())
-		if err := setReflectValue(nv.Elem(), val); err != nil {
-			return err
-		}
-		fv.Set(nv)
-		return nil
-	}
-	if fv.Type() == reflect.TypeOf(time.Time{}) {
-		x, err := ToTime(val)
-		if err != nil {
-			return err
-		}
-		fv.Set(reflect.ValueOf(x))
-		return nil
-	}
-	if fv.Type() == reflect.TypeOf(time.Duration(0)) {
-		x, err := ToDuration(val)
-		if err != nil {
-			return err
-		}
-		fv.SetInt(int64(x))
-		return nil
-	}
-	switch fv.Kind() {
-	case reflect.Bool:
-		x, err := ToBool(val)
-		if err != nil {
-			return err
-		}
-		fv.SetBool(x)
-		return nil
-	case reflect.String:
-		x, err := ToString(val)
-		if err != nil {
-			return err
-		}
-		fv.SetString(x)
-		return nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		x, err := ToInt64(val)
-		if err != nil {
-			return err
-		}
-		if fv.OverflowInt(x) {
-			return ErrOverflow
-		}
-		fv.SetInt(x)
-		return nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		x, err := ToUint64(val)
-		if err != nil {
-			return err
-		}
-		if fv.OverflowUint(x) {
-			return ErrOverflow
-		}
-		fv.SetUint(x)
-		return nil
-	case reflect.Float32, reflect.Float64:
-		x, err := ToFloat64(val)
-		if err != nil {
-			return err
-		}
-		if fv.OverflowFloat(x) {
-			return ErrOverflow
-		}
-		fv.SetFloat(x)
-		return nil
-	case reflect.Slice:
-		return setSliceReflect(fv, val)
-	case reflect.Struct:
-		return Populate(fv.Addr().Interface(), val)
-	}
-	return ErrUnsupported
-}
+func setReflectValue(fv reflect.Value, val any) error { return setReflectValuePath(fv, val, "") }
 func setSliceReflect(fv reflect.Value, val any) error {
 	rv := reflect.ValueOf(val)
 	var items []any
@@ -1167,10 +1003,10 @@ func Query[T Target](values url.Values, key string, fallback T) T {
 	}
 	return fallback
 }
-func QueryInt(v url.Values, k string, d int) int    { return Query(v, k, d) }
-func QueryBool(v url.Values, k string, d bool) bool { return Query(v, k, d) }
+func QueryInt(v url.Values, k string, d int) int    { return Query[int](v, k, d) }
+func QueryBool(v url.Values, k string, d bool) bool { return Query[bool](v, k, d) }
 func QueryDuration(v url.Values, k string, d time.Duration) time.Duration {
-	return Query(v, k, d)
+	return Query[time.Duration](v, k, d)
 }
 func FormDuration(v url.Values, k string, d time.Duration) time.Duration {
 	return QueryDuration(v, k, d)

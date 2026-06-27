@@ -1,23 +1,13 @@
 package main
 
-import (
-	"fmt"
-	"time"
+import "fmt"
 
-	convert "github.com/oarkflow/convert"
-)
-
-type GeneratedConfig struct {
-	Port    int           `convert:"port"`
-	Timeout time.Duration `convert:"timeout"`
+type Config struct {
+	Port  int  `convert:"port" default:"8080"`
+	Debug bool `convert:"debug"`
 }
 
-// This example uses the runtime binder. The equivalent generated binder is created with:
-// go run github.com/oarkflow/convert/cmd/convertgen -type GeneratedConfig -input main.go
 func main() {
-	cfg, err := convert.ToStruct[GeneratedConfig](map[string]any{"port": "8080", "timeout": "2s"})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(cfg.Port, cfg.Timeout)
+	cfg, _ := ConvertConfig(map[string]any{"port": "9000", "debug": "true"})
+	fmt.Println(cfg.Port, cfg.Debug)
 }
