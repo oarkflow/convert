@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"example.com/goconvert/convert"
+	"github.com/oarkflow/convert"
 )
 
 func main() {
