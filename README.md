@@ -213,3 +213,99 @@ err := convert.DTO(&dst, input, convert.WithDTODecodeHook(func(ctx convert.DTOCo
     return false, nil
 }))
 ```
+
+## Advanced DTO conversion features
+
+The DTO layer now includes a production feature set for struct/map/slice/object mapping:
+
+- Cached field metadata and reusable `DTOPlan[S,T]` conversion facades.
+- Type-pair fast converter registry: `RegisterPair[S,T]`, `DTOConvertPair[S,T]`.
+- Strict DTO mode: `WithDTOStrict()`, `WithDTOErrorUnused()`, `WithDTOLosslessNumbers()`.
+- Resource limits: `WithDTOMaxDepth`, `WithDTOMaxSliceLen`, `WithDTOMaxMapSize`.
+- Flatten/unflatten support for dotted paths: `WithDTOFlatten()`, `FlattenMap`, `UnflattenMap`, `StructToFlatMap`.
+- Field aliases from tag options: `source=a|b|c` and `alias=a|b|c`.
+- Field transforms: `trim`, `lower`, `upper`, `title`, `snake`, `camel`, `kebab`.
+- Field security flags: `readonly`, `writeonly`, `sensitive`, `secret`.
+- Redaction for logging: `Redact`.
+- Warning/report mode: `DTOToReport`, `DTOReport`.
+- Batch conversion: `DTOBatch`, `DTOBatchConvert`, error collection, skip invalid, and parallel mode.
+- Patch/update support: `ApplyPatch` returns changed paths and ignores absent fields.
+- Struct diff and merge: `Diff`, `SortedDiff`, `Merge`.
+- Schema generation: `SchemaOf[T]`, `SchemaFor`, `StableJSONSchema[T]`.
+- Source-specific decoders: `FromQuery`, `FromForm`, `FromHeaders`, `FromEnv`, `FromCSVRow`.
+- Object encoders: `ToQuery`, `ToHeaders`, `ToEnv`.
+- JSONL streaming conversion: `DTOStreamJSONL[T]`.
+- Plugin installation hook: `Use(plugin...)`.
+- Profiles: `DTOProfileAPI`, `DTOProfileDB`, `DTOProfileConfig`, `DTOProfileForm`, `DTOProfileCSV`, `DTOProfileStrict`.
+
+Example:
+
+```go
+package main
+
+import (
+    "fmt"
+    "net/url"
+
+    "github.com/oarkflow/convert"
+)
+
+type UserDTO struct {
+    ID       int    `json:"id,readonly"`
+    Name     string `json:"name,trim,title" validate:"required"`
+    Email    string `json:"email,trim,lower"`
+    City     string `json:"address.city"`
+    APIKey   string `json:"api_key,sensitive"`
+    Password string `json:"password,writeonly,sensitive"`
+}
+
+func main() {
+    input := map[string]any{
+        "id":       42,
+        "name":     "  sujit kumar ",
+        "email":    " ADMIN@EXAMPLE.COM ",
+        "address":  map[string]any{"city": "Kathmandu"},
+        "api_key":  "secret-key",
+        "password": "secret-password",
+    }
+
+    user, err := convert.DTOTo[UserDTO](input, convert.WithDTOFlatten())
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf("%+v\n", user)
+
+    safe, _ := convert.Redact(user)
+    fmt.Printf("%+v\n", safe)
+
+    q := url.Values{"name": {"sujit"}, "address.city": {"Kathmandu"}}
+    fromQuery, _ := convert.FromQuery[UserDTO](q, convert.WithDTOFlatten())
+    fmt.Printf("%+v\n", fromQuery)
+}
+```
+
+Patch/update example:
+
+```go
+changed, err := convert.ApplyPatch(&user, map[string]any{
+    "name": "Updated Name",
+})
+// changed == []string{"name"}
+```
+
+Batch/report example:
+
+```go
+report := convert.DTOBatchConvert[UserDTO](rows,
+    convert.DTOBatchCollectErrors(),
+    convert.DTOBatchParallel(8),
+    convert.DTOBatchWithOptions(convert.WithDTOFlatten()),
+)
+```
+
+Schema example:
+
+```go
+schema := convert.SchemaOf[UserDTO]()
+fmt.Println(convert.StableJSONSchema[UserDTO]())
+```

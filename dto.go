@@ -36,6 +36,11 @@ type DTOOptions struct {
 	SquashAnonymous bool
 	UseCache        bool
 	DecodeHook      DTOHook
+	Flatten         bool
+	MaxDepth        int
+	MaxSliceLen     int
+	MaxMapSize      int
+	LosslessNumbers bool
 }
 
 // DefaultDTOOptions returns the default DTO conversion settings.
@@ -46,7 +51,11 @@ func DefaultDTOOptions() DTOOptions {
 		WeaklyTyped:     true,
 		UseCache:        true,
 		SquashAnonymous: true,
+		MaxDepth:        64,
+		MaxSliceLen:     1 << 20,
+		MaxMapSize:      1 << 20,
 	}
+
 }
 
 type DTOOption func(*DTOOptions)
@@ -67,6 +76,32 @@ func WithDTOSplit(opts ...SplitOption) DTOOption {
 }
 func WithDTOZeroMissing() DTOOption { return func(o *DTOOptions) { o.ZeroMissing = true } }
 func WithDTOErrorUnused() DTOOption { return func(o *DTOOptions) { o.ErrorUnused = true } }
+func WithDTOFlatten() DTOOption     { return func(o *DTOOptions) { o.Flatten = true } }
+func WithDTOMaxDepth(n int) DTOOption {
+	return func(o *DTOOptions) {
+		if n > 0 {
+			o.MaxDepth = n
+		}
+	}
+}
+func WithDTOMaxSliceLen(n int) DTOOption {
+	return func(o *DTOOptions) {
+		if n >= 0 {
+			o.MaxSliceLen = n
+		}
+	}
+}
+func WithDTOMaxMapSize(n int) DTOOption {
+	return func(o *DTOOptions) {
+		if n >= 0 {
+			o.MaxMapSize = n
+		}
+	}
+}
+func WithDTOLosslessNumbers() DTOOption { return func(o *DTOOptions) { o.LosslessNumbers = true } }
+func WithDTOStrict() DTOOption {
+	return func(o *DTOOptions) { o.ErrorUnused = true; o.LosslessNumbers = true; o.WeaklyTyped = false }
+}
 func WithDTODecodeHook(h DTOHook) DTOOption {
 	return func(o *DTOOptions) { o.DecodeHook = h }
 }
@@ -134,6 +169,9 @@ func DTOSlice[T any](src any, opts ...DTOOption) ([]T, error) {
 }
 
 func dtoSet(dst reflect.Value, src any, path string, opt DTOOptions) error {
+	if opt.MaxDepth > 0 && dtoPathDepth(path) > opt.MaxDepth {
+		return PathError(path, KindOf(src), KindOfReflect(dst), src, ErrUnsupported)
+	}
 	if !dst.IsValid() || !dst.CanSet() {
 		return PathError(path, KindOf(src), KindInvalid, src, ErrUnsupported)
 	}
@@ -217,6 +255,9 @@ func dtoSet(dst reflect.Value, src any, path string, opt DTOOptions) error {
 		return nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		x, err := ToInt64(src)
+		if opt.LosslessNumbers {
+			x, err = ToInt64With(src, NoPrecisionLoss())
+		}
 		if err != nil {
 			return PathError(path, KindOf(src), KindInt, src, err)
 		}
@@ -227,6 +268,11 @@ func dtoSet(dst reflect.Value, src any, path string, opt DTOOptions) error {
 		return nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		x, err := ToUint64(src)
+		if opt.LosslessNumbers {
+			if f, ok := src.(float64); ok && mathTrunc(f) != f {
+				err = ErrPrecisionLoss
+			}
+		}
 		if err != nil {
 			return PathError(path, KindOf(src), KindUint, src, err)
 		}
@@ -262,6 +308,9 @@ func dtoSetSlice(dst reflect.Value, src any, path string, opt DTOOptions) error 
 	if err != nil {
 		return PathError(path, KindOf(src), KindSlice, src, err)
 	}
+	if opt.MaxSliceLen >= 0 && len(items) > opt.MaxSliceLen {
+		return PathError(path, KindOf(src), KindSlice, src, ErrOverflow)
+	}
 	out := reflect.MakeSlice(dst.Type(), 0, len(items))
 	for i, item := range items {
 		elem := reflect.New(dst.Type().Elem()).Elem()
@@ -294,6 +343,9 @@ func dtoSetMap(dst reflect.Value, src any, path string, opt DTOOptions) error {
 	m, err := dtoSourceEntries(src, opt)
 	if err != nil {
 		return PathError(path, KindOf(src), KindMap, src, err)
+	}
+	if opt.MaxMapSize >= 0 && len(m) > opt.MaxMapSize {
+		return PathError(path, KindOf(src), KindMap, src, ErrOverflow)
 	}
 	out := reflect.MakeMapWithSize(dst.Type(), len(m))
 	for _, e := range m {
@@ -345,6 +397,9 @@ func dtoSourceEntries(src any, opt DTOOptions) ([]dtoEntry, error) {
 		for _, f := range meta.fields {
 			fv := fieldByIndex(rv, f.index)
 			if !fv.IsValid() || !fv.CanInterface() {
+				continue
+			}
+			if f.writeonly {
 				continue
 			}
 			out = append(out, dtoEntry{key: f.primary, name: f.primary, value: fv.Interface()})
@@ -413,6 +468,11 @@ func dtoStructFromStringMap(dst reflect.Value, m map[string]any, path string, op
 				val, found = fm.defaultValue, true
 			}
 		}
+		if !found && opt.Flatten {
+			if v, ok := lookupFlattenValue(m, fm.names, opt.TagPolicy.CaseInsensitive); ok {
+				val, found, usedName = v, true, fm.primary
+			}
+		}
 		if !found {
 			if opt.ZeroMissing {
 				field.SetZero()
@@ -422,7 +482,12 @@ func dtoStructFromStringMap(dst reflect.Value, m map[string]any, path string, op
 			}
 			continue
 		}
+		if fm.readonly {
+			used[usedName] = struct{}{}
+			continue
+		}
 		used[usedName] = struct{}{}
+		val = applyDTOTransforms(val, fm.transforms)
 		if err := dtoSet(field, val, fieldPath, opt); err != nil {
 			return err
 		}
@@ -469,6 +534,10 @@ type dtoFieldMeta struct {
 	required     bool
 	validate     bool
 	structField  reflect.StructField
+	transforms   []string
+	readonly     bool
+	writeonly    bool
+	sensitive    bool
 }
 
 type dtoCacheKey struct {
@@ -504,6 +573,9 @@ func buildDTOMeta(t reflect.Type, prefix []int, opt DTOOptions, out *[]dtoFieldM
 			continue
 		}
 		names, skip := fieldLookupNames(f, opt.TagPolicy)
+		for _, extra := range dtoExtendedNames(f) {
+			names = appendUniqueString(names, extra)
+		}
 		if skip {
 			continue
 		}
@@ -517,7 +589,8 @@ func buildDTOMeta(t reflect.Type, prefix []int, opt DTOOptions, out *[]dtoFieldM
 			continue
 		}
 		primary := firstName(names, snakeName(f.Name))
-		*out = append(*out, dtoFieldMeta{index: idx, names: names, primary: primary, defaultValue: f.Tag.Get("default"), required: isRequired(f), validate: f.Tag.Get("validate") != "", structField: f})
+		transforms, readonly, writeonly, sensitive := dtoTagOptions(f)
+		*out = append(*out, dtoFieldMeta{index: idx, names: names, primary: primary, defaultValue: f.Tag.Get("default"), required: isRequired(f), validate: f.Tag.Get("validate") != "", structField: f, transforms: transforms, readonly: readonly, writeonly: writeonly, sensitive: sensitive})
 	}
 }
 
