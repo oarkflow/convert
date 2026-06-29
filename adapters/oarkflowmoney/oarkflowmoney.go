@@ -26,11 +26,11 @@ var ErrMissingCurrency = errors.New("oarkflowmoney: missing currency")
 //	convert.ConvertGraph[money.Money]([]byte("NPR 100"))
 func Register(defaultCurrency string) {
 	defaultCurrency = strings.ToUpper(strings.TrimSpace(defaultCurrency))
-	convert.Register[money.Money](func(v any, ctx convert.Context) (money.Money, error) {
+	convert.Register(func(v any, ctx convert.Context) (money.Money, error) {
 		return ToMoney(v, defaultCurrency)
 	})
-	convert.RegisterEdge[string, money.Money](func(s string) (money.Money, error) { return ToMoney(s, defaultCurrency) })
-	convert.RegisterEdge[[]byte, money.Money](func(b []byte) (money.Money, error) { return ToMoney(b, defaultCurrency) })
+	convert.RegisterEdge(func(s string) (money.Money, error) { return ToMoney(s, defaultCurrency) })
+	convert.RegisterEdge(func(b []byte) (money.Money, error) { return ToMoney(b, defaultCurrency) })
 }
 
 // Unregister removes the generic money.Money converter from convert's registry.

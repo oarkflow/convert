@@ -172,3 +172,44 @@ func example() {
 ```
 
 Supported money inputs include strings (`"USD 12.50"`, `"12.50 USD"`, `"US$12.50"`), numbers with a default currency, maps with `amount`/`currency` or `minor`/`currency`, structs with `Amount`/`Currency` or `Minor`/`Currency`, and `[]any` pairs. Numeric scalar inputs are treated as major units; use `oarkflowmoney.NewFromMinor` or a `minor` field when you have cents/minor units.
+
+## High-performance DTO conversion
+
+The `DTO` API is the production data-to-object layer for deep conversion across structs, maps, slices, arrays, pointers and scalar fields. It caches struct field metadata, honors `convert`, `json`, `env`, `query`, `form`, `header` and `csv` tags, supports defaults, required/validate tags, case-insensitive field matching, string-to-slice splitting, struct-to-map conversion, custom decode hooks and path-aware errors.
+
+```go
+type Address struct {
+    City string `json:"city"`
+    Zip  int    `json:"zip"`
+}
+
+type UserDTO struct {
+    ID      int            `json:"id" validate:"required"`
+    Active  bool           `json:"active" default:"true"`
+    Tags    []string       `json:"tags"`
+    Address Address        `json:"address"`
+    Limits  map[string]int `json:"limits"`
+    TTL     time.Duration  `json:"ttl" default:"30s"`
+}
+
+user, err := convert.DTOTo[UserDTO](map[string]any{
+    "id": "1001",
+    "tags": "smpp,edge,production",
+    "address": map[string]any{"city":"Kathmandu", "zip":"44600"},
+    "limits": map[any]any{"tps":"500", "burst":1000},
+})
+
+var dst UserDTO
+err = convert.DTO(&dst, input, convert.WithDTOErrorUnused())
+items, err := convert.DTOSlice[UserDTO]([]any{input})
+m, err := convert.DTOMap[string, any](dst)
+```
+
+For hot paths that need domain-specific behavior, add a decode hook:
+
+```go
+err := convert.DTO(&dst, input, convert.WithDTODecodeHook(func(ctx convert.DTOContext, dst reflect.Value, src any) (bool, error) {
+    // set dst and return true to bypass the built-in converter
+    return false, nil
+}))
+```
