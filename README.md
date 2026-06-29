@@ -309,3 +309,162 @@ Schema example:
 schema := convert.SchemaOf[UserDTO]()
 fmt.Println(convert.StableJSONSchema[UserDTO]())
 ```
+
+## Usability APIs
+
+The package now includes a high-level usability layer on top of the fast DTO converter.
+
+### One-call mapping
+
+```go
+user, err := convert.Map[User](input)
+err := convert.MapInto(input, &user)
+user := convert.MustMap[User](input)
+```
+
+Presets are available for common modes:
+
+```go
+convert.Map[User](input, convert.API())
+convert.Map[User](input, convert.StrictAPI())
+convert.Map[Config](input, convert.Config())
+convert.Map[Search](input, convert.QueryDTO())
+convert.Map[HeaderDTO](input, convert.Header())
+```
+
+`DTOLoose` and `DTOStrictPreset` are named to avoid conflicts with the existing scalar `Loose()` and `Strict()` policy helpers.
+
+### Multi-source binding
+
+```go
+req, err := convert.Bind[SearchRequest](
+    convert.FromMapSource("body", body, "json", "convert"),
+    convert.FromQuerySource(query),
+    convert.FromHeaderSource(headers),
+    convert.FromDefaultSource(map[string]any{"limit": 25}),
+)
+```
+
+Later sources overwrite earlier keys. Use `BindWithOptions` for strict, flattening, or source-priority options.
+
+### HTTP helpers
+
+```go
+err := convert.BindJSON(r, &dto)
+err := convert.BindRequestQuery(r, &dto)
+err := convert.BindRequestForm(r, &dto)
+err := convert.BindHeaders(r, &dto)
+err := convert.BindRequest(r, &dto)
+```
+
+The HTTP helpers are optional convenience functions built on `net/http`; the core scalar converter remains dependency-light.
+
+### Error reporting
+
+```go
+out, err := convert.MapAll[User](input)
+fmt.Println(convert.HumanError(err))
+fmt.Println(convert.DebugError(err))
+```
+
+`MapAll` collects field errors where possible and returns `convert.MultiError`.
+
+### Trace and dry-run
+
+```go
+trace := convert.MapTrace[User](input)
+report := convert.DryRun[User](input)
+```
+
+Trace steps show whether fields were mapped, defaulted, skipped, readonly-skipped, or missing.
+
+### Three-state patch values
+
+```go
+type UserPatch struct {
+    Name  convert.Optional[string] `json:"name"`
+    Email convert.Optional[string] `json:"email"`
+}
+
+changed, err := convert.ApplyOptionalPatch(&user, UserPatch{
+    Name:  convert.Some("New Name"),
+    Email: convert.Null[string](),
+})
+```
+
+`Optional[T]` supports unset, explicit null/clear, and value states.
+
+### Safe logging and redaction
+
+```go
+safeJSON := convert.SafeJSON(user)
+safeMap := convert.SafeMap(user)
+safeText := convert.SafeString(user)
+```
+
+Fields tagged `sensitive`, `secret`, or `sensitive:"true"` are redacted.
+
+### Config loader
+
+```go
+cfg, err := convert.LoadConfig[Config](
+    convert.FileSource("config.json"),
+    convert.EnvSource(),
+    convert.MapSource(map[string]any{"debug": true}),
+)
+```
+
+Sources are merged in order. Later sources override earlier sources.
+
+### SQL helpers
+
+```go
+user, err := convert.FromSQLRow[User](row, []string{"id", "name", "email"})
+users, err := convert.FromSQLRows[User](rows)
+args, err := convert.ToSQLArgs(user, "id", "name", "email")
+```
+
+The helpers use small interfaces compatible with `database/sql` rows.
+
+### CSV helpers
+
+```go
+users, err := convert.ReadCSV[User](reader)
+err := convert.WriteCSV(writer, users)
+```
+
+CSV headers are matched using `csv`, `json`, and `convert` tags.
+
+### Collections
+
+```go
+byID, err := convert.SliceToMap[User, int](users, "id")
+groups, err := convert.GroupBy[User, string](users, "role")
+emails, err := convert.Pluck[User, string](users, "email")
+```
+
+### Runtime diagnostics and warmup
+
+```go
+stats := convert.Stats()
+err := convert.Warmup[User](map[string]any{"id": 1})
+err := convert.WarmupPair[Source, Target]()
+```
+
+### CLI
+
+A lightweight CLI entry point is available:
+
+```bash
+convert schema
+convert inspect
+convert validate -file payload.json
+```
+
+Typed schemas are generated in Go with `convert.StableJSONSchema[T]()` and field docs with `convert.Describe[T]()`.
+
+### Runnable example
+
+```bash
+go run ./examples/usability
+```
